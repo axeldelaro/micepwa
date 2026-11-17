@@ -277,6 +277,11 @@ export class Game {
       this.syncInputLockState();
     };
 
+    this.hud.onOpenChat = () => {
+      this.chatBox.open(false);
+      this.syncInputLockState();
+    };
+
     this.hud.onOpenInventory = () => {
       this.inventoryModal.openInventory(this.player.gameMode);
       this.syncInputLockState();
@@ -541,8 +546,8 @@ export class Game {
     this.hud.setVisible(true);
     this.chatBox.setVisible(true);
     this.chatBox.addMessage(
-      'Bienvenue',
-      `Monde "${opts.name}" (${DESIGN_PACK_INFO[opts.designPack].name}) prêt ! Testez l'Arc, le Grappin, la Baguette d'Architecte, la Météo ou tapez /help.`,
+      'Info',
+      `✨ ${opts.name} prêt !`,
       true
     );
 

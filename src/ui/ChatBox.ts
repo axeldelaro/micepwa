@@ -1,51 +1,109 @@
 export class ChatBox {
-  private readonly container: HTMLDivElement;
+  private readonly toastEl: HTMLDivElement;
+  private readonly drawerBackdrop: HTMLDivElement;
   private readonly logEl: HTMLDivElement;
-  private readonly inputRow: HTMLDivElement;
   private readonly inputEl: HTMLInputElement;
+  private toastTimer: number | null = null;
   private isOpen = false;
 
   public onSubmitMessage?: (text: string) => void;
   public onClose?: () => void;
 
   constructor(parent: HTMLElement) {
-    this.container = document.createElement('div');
-    this.container.style.cssText = `
+    // 1. Sleek Top-Center Auto-Fading Single-Line Toast (never blocks joysticks or hotbar!)
+    this.toastEl = document.createElement('div');
+    this.toastEl.style.cssText = `
       position: fixed;
-      left: 14px;
-      bottom: 92px;
-      width: min(440px, 78vw);
-      z-index: 26;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+      top: calc(50px + var(--safe-top));
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: min(88vw, 460px);
+      background: rgba(11, 16, 26, 0.82);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      border-radius: 20px;
+      padding: 5px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+      z-index: 25;
     `;
+
+    // 2. Clean Chat & Command Modal Drawer (only visible when opened via T / Enter / 💬)
+    this.drawerBackdrop = document.createElement('div');
+    this.drawerBackdrop.className = 'modal-backdrop';
+    this.drawerBackdrop.style.display = 'none';
+
+    const card = document.createElement('div');
+    card.className = 'modal-card';
+    card.style.maxWidth = '500px';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;';
+    header.innerHTML = `<strong style="font-size:15px;">💬 Chat & Commandes</strong>`;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'voxel-btn';
+    closeBtn.textContent = '✕';
+    closeBtn.addEventListener('click', () => this.close());
+    header.appendChild(closeBtn);
 
     this.logEl = document.createElement('div');
     this.logEl.style.cssText = `
       display: flex;
       flex-direction: column;
       gap: 4px;
-      max-height: 190px;
+      height: 150px;
       overflow-y: auto;
-      font-size: 13px;
-      text-shadow: 1px 1px 2px #000;
+      background: rgba(9, 13, 22, 0.72);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
     `;
 
-    this.inputRow = document.createElement('div');
-    this.inputRow.className = 'ui-interactive';
-    this.inputRow.style.cssText = `
-      display: none;
-      gap: 6px;
-      align-items: center;
-    `;
+    // Quick 1-Tap Command Chips for Mobile Players!
+    const quickChips = document.createElement('div');
+    quickChips.style.cssText = 'display:flex;gap:5px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;';
+    const presets: Array<[string, string]> = [
+      ['☀️ Jour', '/time set day'],
+      ['🌙 Nuit', '/time set night'],
+      ['🌧️ Pluie', '/weather rain'],
+      ['☀️ Clair', '/weather clear'],
+      ['🤖 +Garde', '/bot spawn guard'],
+      ['⛏️ +Mineur', '/bot spawn miner'],
+      ['🪽 Créatif', '/gamemode creative'],
+      ['⚔️ Survie', '/gamemode survival'],
+    ];
+    for (const [label, cmd] of presets) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'voxel-btn';
+      chip.style.padding = '4px 8px';
+      chip.style.fontSize = '11px';
+      chip.textContent = label;
+      chip.addEventListener('click', () => {
+        this.onSubmitMessage?.(cmd);
+        this.close();
+      });
+      quickChips.appendChild(chip);
+    }
+
+    const inputRow = document.createElement('div');
+    inputRow.style.cssText = 'display:flex;gap:6px;';
 
     this.inputEl = document.createElement('input');
     this.inputEl.type = 'text';
     this.inputEl.className = 'voxel-input';
     this.inputEl.style.flex = '1';
-    this.inputEl.placeholder = 'Message ou commande (/help, /gamemode, /time set, /tp, /bot spawn)...';
+    this.inputEl.placeholder = 'Message ou /commande...';
 
     const sendBtn = document.createElement('button');
     sendBtn.type = 'button';
@@ -64,13 +122,18 @@ export class ChatBox {
       }
     });
 
-    this.inputRow.append(this.inputEl, sendBtn);
-    this.container.append(this.logEl, this.inputRow);
-    parent.appendChild(this.container);
+    inputRow.append(this.inputEl, sendBtn);
+    card.append(header, this.logEl, quickChips, inputRow);
+    this.drawerBackdrop.appendChild(card);
+
+    parent.append(this.toastEl, this.drawerBackdrop);
   }
 
   public setVisible(visible: boolean): void {
-    this.container.style.display = visible ? 'flex' : 'none';
+    if (!visible) {
+      this.toastEl.style.opacity = '0';
+      this.close();
+    }
   }
 
   public isInputOpen(): boolean {
@@ -79,17 +142,15 @@ export class ChatBox {
 
   public open(prefillSlash = false): void {
     this.isOpen = true;
-    this.inputRow.style.display = 'flex';
-    this.logEl.style.pointerEvents = 'auto';
+    this.drawerBackdrop.style.display = 'flex';
     this.inputEl.value = prefillSlash ? '/' : '';
-    window.setTimeout(() => this.inputEl.focus(), 10);
+    window.setTimeout(() => this.inputEl.focus(), 20);
   }
 
   public close(): void {
     if (!this.isOpen) return;
     this.isOpen = false;
-    this.inputRow.style.display = 'none';
-    this.logEl.style.pointerEvents = 'none';
+    this.drawerBackdrop.style.display = 'none';
     this.inputEl.blur();
     this.onClose?.();
   }
@@ -106,30 +167,26 @@ export class ChatBox {
   public addMessage(sender: string, text: string, system = false): void {
     const line = document.createElement('div');
     line.style.cssText = `
-      background: rgba(9, 13, 22, 0.68);
-      border-left: 3px solid ${system ? '#facc15' : '#38bdf8'};
-      padding: 4px 8px;
-      border-radius: 4px;
-      color: ${system ? '#fef08a' : '#f8fafc'};
-      transition: opacity 0.4s ease;
+      color: ${system ? '#fde047' : '#f8fafc'};
+      line-height: 1.35;
     `;
-    const strong = document.createElement('strong');
-    strong.style.color = system ? '#facc15' : '#7dd3fc';
-    strong.textContent = `[${sender}] `;
+    line.innerHTML = `<strong style="color:${system ? '#facc15' : '#38bdf8'};">[${sender}]</strong> `;
     const span = document.createElement('span');
     span.textContent = text;
-    line.append(strong, span);
+    line.appendChild(span);
 
     this.logEl.appendChild(line);
-    while (this.logEl.children.length > 30) {
+    while (this.logEl.children.length > 35) {
       this.logEl.removeChild(this.logEl.firstChild!);
     }
     this.logEl.scrollTop = this.logEl.scrollHeight;
 
-    window.setTimeout(() => {
-      if (!this.isOpen) {
-        line.style.opacity = '0.35';
-      }
-    }, 9000);
+    // Show concise auto-fading pill toast for 2.4s instead of cluttering the screen
+    this.toastEl.textContent = system ? text : `${sender} : ${text}`;
+    this.toastEl.style.opacity = '1';
+    if (this.toastTimer !== null) clearTimeout(this.toastTimer);
+    this.toastTimer = window.setTimeout(() => {
+      this.toastEl.style.opacity = '0';
+    }, 2400);
   }
 }

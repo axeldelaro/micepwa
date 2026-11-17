@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'voxelcraft-ultimate-v2.0.0';
+const CACHE_VERSION = 'voxelcraft-ultimate-v2.1.0';
 const CORE_ASSETS = [
   './',
   './index.html',

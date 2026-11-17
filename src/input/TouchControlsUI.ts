@@ -15,7 +15,6 @@ export class TouchControlsUI {
   public flyDownHeld = false;
   public splitMineHeld = false;
 
-  // Direct touch long-press mining state
   public directMineActive = false;
   public directMineNdcX = 0;
   public directMineNdcY = 0;
@@ -65,25 +64,26 @@ export class TouchControlsUI {
       z-index: 18;
     `;
 
-    // Left floating joystick visual
+    // Left Floating Ergonomic Joystick (positioned cleanly above hotbar line!)
     this.joyBase = document.createElement('div');
     this.joyBase.style.cssText = `
       position: absolute;
-      left: 34px;
-      bottom: 42px;
-      width: 118px;
-      height: 118px;
+      left: calc(18px + var(--safe-left));
+      bottom: calc(68px + var(--safe-bottom));
+      width: 102px;
+      height: 102px;
       border-radius: 50%;
-      background: rgba(15, 23, 42, 0.42);
-      border: 2px solid rgba(148, 163, 184, 0.48);
+      background: rgba(15, 23, 42, 0.36);
+      border: 2px solid rgba(148, 163, 184, 0.42);
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: opacity 0.15s ease;
     `;
     this.joyKnob = document.createElement('div');
     this.joyKnob.style.cssText = `
-      width: 48px;
-      height: 48px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       background: rgba(56, 189, 248, 0.72);
       border: 2px solid #e0f2fe;
@@ -91,54 +91,42 @@ export class TouchControlsUI {
     `;
     this.joyBase.appendChild(this.joyKnob);
 
-    // Top mobile bar (Pause, Chat, Fly toggle)
-    const topBar = document.createElement('div');
-    topBar.className = 'ui-interactive';
-    topBar.style.cssText = `
-      position: absolute;
-      top: 10px;
-      right: 12px;
-      display: flex;
-      gap: 8px;
-    `;
-    const chatBtn = this.makeCircleBtn('💬', 42, () => this.onOpenChat?.());
-    const invBtn = this.makeCircleBtn('🎒', 42, () => this.onOpenInventory?.());
-    const pauseBtn = this.makeCircleBtn('⏸', 42, () => this.onOpenPause?.());
-    topBar.append(chatBtn, invBtn, pauseBtn);
-
-    // Right action cluster (Jump, Sneak, Split Mine/Place, Creative Fly Up/Down)
+    // Right Ergonomic Icon-Only Thumb Cluster (Zero text clutter, positioned cleanly above hotbar!)
     const rightCluster = document.createElement('div');
     rightCluster.className = 'ui-interactive';
     rightCluster.style.cssText = `
       position: absolute;
-      right: 22px;
-      bottom: 36px;
+      right: calc(16px + var(--safe-right));
+      bottom: calc(68px + var(--safe-bottom));
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      gap: 10px;
+      gap: 8px;
     `;
 
     this.flyButtonsWrap = document.createElement('div');
-    this.flyButtonsWrap.style.cssText = 'display: none; gap: 8px;';
-    const flyToggleBtn = this.makeCircleBtn('🪽', 44, () => this.onToggleFly?.());
-    const flyUpBtn = this.makeHoldBtn('⬆️', 44, (down) => (this.flyUpHeld = down));
-    const flyDownBtn = this.makeHoldBtn('⬇️', 44, (down) => (this.flyDownHeld = down));
+    this.flyButtonsWrap.style.cssText = 'display: none; gap: 7px;';
+    const flyToggleBtn = this.makeIconPad('🪽', 42, 'Vol', () => this.onToggleFly?.());
+    const flyUpBtn = this.makeHoldPad('⬆️', 42, 'Monter', (down) => (this.flyUpHeld = down));
+    const flyDownBtn = this.makeHoldPad('⬇️', 42, 'Descendre', (down) => (this.flyDownHeld = down));
     this.flyButtonsWrap.append(flyToggleBtn, flyUpBtn, flyDownBtn);
 
     this.splitButtonsWrap = document.createElement('div');
-    this.splitButtonsWrap.style.cssText = 'display: flex; gap: 10px;';
-    const mineBtn = this.makeHoldBtn('⛏️ Miner', 62, (down) => (this.splitMineHeld = down));
-    const placeBtn = this.makeCircleBtn('🧱 Poser', 62, () => this.onPlaceAction?.());
+    this.splitButtonsWrap.style.cssText = 'display: flex; gap: 9px;';
+    const mineBtn = this.makeHoldPad('⛏️', 54, 'Miner / Attaquer', (down) => (this.splitMineHeld = down));
+    const placeBtn = this.makeIconPad('🧱', 54, 'Poser / Utiliser', () => this.onPlaceAction?.());
     this.splitButtonsWrap.append(mineBtn, placeBtn);
 
     const moveRow = document.createElement('div');
-    moveRow.style.cssText = 'display: flex; gap: 10px; align-items: center;';
-    this.sneakBtn = this.makeCircleBtn('🦵 Sneak', 52, () => {
+    moveRow.style.cssText = 'display: flex; gap: 9px; align-items: center;';
+    this.sneakBtn = this.makeIconPad('🦵', 46, 'Accroupi', () => {
       this.sneakToggled = !this.sneakToggled;
-      this.sneakBtn.style.borderColor = this.sneakToggled ? '#facc15' : 'rgba(148,163,184,0.6)';
+      this.sneakBtn.style.borderColor = this.sneakToggled ? '#facc15' : 'rgba(148,163,184,0.5)';
+      this.sneakBtn.style.background = this.sneakToggled
+        ? 'rgba(234, 179, 8, 0.35)'
+        : 'rgba(15, 23, 42, 0.58)';
     });
-    const jumpBtn = this.makeHoldBtn('⏫ Saut', 60, (down) => (this.jumpHeld = down));
+    const jumpBtn = this.makeHoldPad('⏫', 56, 'Sauter', (down) => (this.jumpHeld = down));
     moveRow.append(this.sneakBtn, jumpBtn);
 
     rightCluster.append(this.flyButtonsWrap, this.splitButtonsWrap, moveRow);
@@ -147,49 +135,65 @@ export class TouchControlsUI {
     this.touchRing = document.createElement('div');
     this.touchRing.style.cssText = `
       position: fixed;
-      width: 68px;
-      height: 68px;
-      margin-left: -34px;
-      margin-top: -34px;
+      width: 64px;
+      height: 64px;
+      margin-left: -32px;
+      margin-top: -32px;
       pointer-events: none;
       display: none;
     `;
     this.touchRing.innerHTML = `
-      <svg width="68" height="68" viewBox="0 0 68 68">
-        <circle cx="34" cy="34" r="28" stroke="rgba(255,255,255,0.25)" stroke-width="5" fill="none" />
-        <circle id="direct-mine-arc" cx="34" cy="34" r="28" stroke="#facc15" stroke-width="5" fill="none"
-          stroke-dasharray="176" stroke-dashoffset="176" transform="rotate(-90 34 34)" />
+      <svg width="64" height="64" viewBox="0 0 64 64">
+        <circle cx="32" cy="32" r="26" stroke="rgba(255,255,255,0.25)" stroke-width="5" fill="none" />
+        <circle id="direct-mine-arc" cx="32" cy="32" r="26" stroke="#facc15" stroke-width="5" fill="none"
+          stroke-dasharray="164" stroke-dashoffset="164" transform="rotate(-90 32 32)" />
       </svg>
     `;
     this.ringCircle = this.touchRing.querySelector('#direct-mine-arc') as SVGCircleElement;
 
-    this.root.append(this.joyBase, topBar, rightCluster, this.touchRing);
+    this.root.append(this.joyBase, rightCluster, this.touchRing);
     parent.appendChild(this.root);
 
     this.bindTouchZones();
   }
 
-  private makeCircleBtn(label: string, size: number, onClick: () => void): HTMLButtonElement {
+  private makeIconPad(icon: string, size: number, title: string, onClick: () => void): HTMLButtonElement {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = label;
+    b.title = title;
+    b.textContent = icon;
     b.style.cssText = `
-      min-width: ${size}px;
+      width: ${size}px;
       height: ${size}px;
-      padding: 0 10px;
-      border-radius: 26px;
-      background: rgba(15, 23, 42, 0.72);
-      border: 2px solid rgba(148, 163, 184, 0.6);
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.58);
+      backdrop-filter: blur(4px);
+      border: 2px solid rgba(148, 163, 184, 0.5);
       color: #f8fafc;
-      font-weight: 700;
-      font-size: 12px;
+      font-size: ${Math.round(size * 0.42)}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       pointer-events: auto;
+      padding: 0;
     `;
-    b.addEventListener('touchstart', (e) => {
-      e.stopPropagation();
-      this.onTouchDetected?.();
-      onClick();
-    }, { passive: true });
+    b.addEventListener(
+      'touchstart',
+      (e) => {
+        e.stopPropagation();
+        b.style.transform = 'scale(0.91)';
+        this.onTouchDetected?.();
+        onClick();
+      },
+      { passive: true }
+    );
+    b.addEventListener(
+      'touchend',
+      () => {
+        b.style.transform = 'scale(1)';
+      },
+      { passive: true }
+    );
     b.addEventListener('click', (e) => {
       e.stopPropagation();
       onClick();
@@ -197,18 +201,27 @@ export class TouchControlsUI {
     return b;
   }
 
-  private makeHoldBtn(label: string, size: number, onHold: (down: boolean) => void): HTMLButtonElement {
-    const b = this.makeCircleBtn(label, size, () => {});
-    b.addEventListener('touchstart', (e) => {
+  private makeHoldPad(icon: string, size: number, title: string, onHold: (down: boolean) => void): HTMLButtonElement {
+    const b = this.makeIconPad(icon, size, title, () => {});
+    b.addEventListener(
+      'touchstart',
+      (e) => {
+        e.stopPropagation();
+        b.style.transform = 'scale(0.91)';
+        b.style.borderColor = '#38bdf8';
+        this.onTouchDetected?.();
+        onHold(true);
+      },
+      { passive: true }
+    );
+    const release = (e: TouchEvent) => {
       e.stopPropagation();
-      this.onTouchDetected?.();
-      onHold(true);
-    }, { passive: true });
-    b.addEventListener('touchend', (e) => {
-      e.stopPropagation();
+      b.style.transform = 'scale(1)';
+      b.style.borderColor = 'rgba(148, 163, 184, 0.5)';
       onHold(false);
-    }, { passive: true });
-    b.addEventListener('touchcancel', () => onHold(false), { passive: true });
+    };
+    b.addEventListener('touchend', release, { passive: true });
+    b.addEventListener('touchcancel', release, { passive: true });
     return b;
   }
 
@@ -217,17 +230,20 @@ export class TouchControlsUI {
       'touchstart',
       (ev) => {
         this.onTouchDetected?.();
+        if (!ev.changedTouches) return;
         const target = ev.target as HTMLElement | null;
         if (target?.closest('.ui-interactive, .modal-backdrop')) return;
 
         for (let i = 0; i < ev.changedTouches.length; i++) {
           const t = ev.changedTouches[i]!;
-          if (t.clientX < window.innerWidth * 0.44 && this.joyTouchId === null) {
+          if (t.clientX < window.innerWidth * 0.45 && this.joyTouchId === null) {
             this.joyTouchId = t.identifier;
             this.joyOriginX = t.clientX;
             this.joyOriginY = t.clientY;
-            this.joyBase.style.left = `${Math.max(16, t.clientX - 59)}px`;
-            this.joyBase.style.bottom = `${Math.max(16, window.innerHeight - t.clientY - 59)}px`;
+            const clampLeft = Math.max(12, Math.min(window.innerWidth * 0.35, t.clientX - 51));
+            const clampBottom = Math.max(66, Math.min(window.innerHeight * 0.45, window.innerHeight - t.clientY - 51));
+            this.joyBase.style.left = `${clampLeft}px`;
+            this.joyBase.style.bottom = `${clampBottom}px`;
           } else if (this.camTouchId === null) {
             this.camTouchId = t.identifier;
             this.camStartX = t.clientX;
@@ -260,12 +276,13 @@ export class TouchControlsUI {
     window.addEventListener(
       'touchmove',
       (ev) => {
+        if (!ev.changedTouches) return;
         for (let i = 0; i < ev.changedTouches.length; i++) {
           const t = ev.changedTouches[i]!;
           if (t.identifier === this.joyTouchId) {
             const dx = t.clientX - this.joyOriginX;
             const dy = t.clientY - this.joyOriginY;
-            const maxR = 46;
+            const maxR = 40;
             const dist = Math.hypot(dx, dy);
             const clamped = Math.min(maxR, dist);
             const angle = Math.atan2(dy, dx);
@@ -275,10 +292,9 @@ export class TouchControlsUI {
 
             this.moveX = kx / maxR;
             this.moveZ = ky / maxR;
-            // Upward sprint lock when pushed past 92% forward
-            this.sprintLocked = this.moveZ < -0.9;
+            this.sprintLocked = this.moveZ < -0.88;
             this.joyKnob.style.background = this.sprintLocked
-              ? 'rgba(250, 204, 21, 0.85)'
+              ? 'rgba(250, 204, 21, 0.88)'
               : 'rgba(56, 189, 248, 0.72)';
           } else if (t.identifier === this.camTouchId) {
             const dx = t.clientX - this.camLastX;
@@ -306,6 +322,7 @@ export class TouchControlsUI {
     );
 
     const endHandler = (ev: TouchEvent) => {
+      if (!ev.changedTouches) return;
       for (let i = 0; i < ev.changedTouches.length; i++) {
         const t = ev.changedTouches[i]!;
         if (t.identifier === this.joyTouchId) {
@@ -349,7 +366,7 @@ export class TouchControlsUI {
   }
 
   public setDirectMineProgress(progress01: number): void {
-    const circumference = 176;
+    const circumference = 164;
     const offset = circumference * (1.0 - Math.max(0, Math.min(1, progress01)));
     this.ringCircle.style.strokeDashoffset = `${offset}`;
   }

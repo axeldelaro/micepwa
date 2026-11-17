@@ -26,7 +26,7 @@ export class InventoryModal {
   private refreshTimer: number | null = null;
 
   private contextMode: InventoryContextMode = 'inventory';
-  private activeTab: 'craft' | 'creative' = 'craft';
+  private activeTab: 'recipes' | 'grid' | 'creative' = 'recipes';
   private creativeSearchQuery = '';
   private activeFurnace: FurnaceState | null = null;
   private activeChest: ChestState | null = null;
@@ -58,7 +58,7 @@ export class InventoryModal {
 
   public openInventory(gameMode: GameMode): void {
     this.contextMode = 'inventory';
-    this.activeTab = gameMode === 'creative' ? 'creative' : 'craft';
+    this.activeTab = gameMode === 'creative' ? 'creative' : 'recipes';
     this.activeFurnace = null;
     this.activeChest = null;
     this.activeMerchant = null;
@@ -67,7 +67,7 @@ export class InventoryModal {
 
   public openCraftingTable(gameMode: GameMode): void {
     this.contextMode = 'crafting_table';
-    this.activeTab = 'craft';
+    this.activeTab = 'recipes';
     this.mountModal(gameMode);
   }
 
@@ -99,15 +99,15 @@ export class InventoryModal {
 
     const card = document.createElement('div');
     card.className = 'modal-card';
-    card.style.width = 'min(820px, 96vw)';
+    card.style.maxWidth = '560px';
 
     const cursorPreview = document.createElement('div');
     cursorPreview.style.cssText = `
       position: fixed;
       pointer-events: none;
       z-index: 95;
-      width: 40px;
-      height: 40px;
+      width: 36px;
+      height: 36px;
       display: none;
     `;
 
@@ -161,7 +161,7 @@ export class InventoryModal {
     }
     this.floatingCursorEl.style.display = 'block';
     this.floatingCursorEl.innerHTML = `
-      <img src="${this.atlas.getItemIcon(cs.itemId)}" style="width:36px;height:36px;image-rendering:pixelated;" />
+      <img src="${this.atlas.getItemIcon(cs.itemId)}" style="width:32px;height:32px;image-rendering:pixelated;" />
       ${cs.count > 1 ? `<span class="slot-count">${cs.count}</span>` : ''}
     `;
   }
@@ -204,7 +204,6 @@ export class InventoryModal {
         if (held.count <= 0) this.inventory.cursorStack = null;
         setSlot(cur);
       } else {
-        // Swap stacks
         this.inventory.cursorStack = { ...cur };
         setSlot({ ...held });
       }
@@ -258,62 +257,72 @@ export class InventoryModal {
     const rerender = () => this.renderCard(card, gameMode);
     this.updateCursorPreview();
 
-    let title = '🎒 Inventaire & Artisanat';
-    if (this.contextMode === 'crafting_table') title = '🛠️ Table de Craft (3x3) & Livre de Recettes';
-    else if (this.contextMode === 'furnace') title = '🔥 Fourneau de Fonte & Cuisson';
-    else if (this.contextMode === 'chest') title = '📦 Coffre de Stockage';
-    else if (this.contextMode === 'merchant') title = `💎 Comptoir d'Échanges — ${this.activeMerchant?.name ?? 'Marchand'}`;
+    let title = '🎒 Sac & Craft';
+    if (this.contextMode === 'crafting_table') title = '🛠️ Atelier 3x3';
+    else if (this.contextMode === 'furnace') title = '🔥 Fourneau';
+    else if (this.contextMode === 'chest') title = '📦 Coffre';
+    else if (this.contextMode === 'merchant') title = `💎 ${this.activeMerchant?.name ?? 'Marchand'}`;
+
+    const heldCs = this.inventory.cursorStack;
+    const touchSelectionBanner = heldCs
+      ? `<div style="display:flex;align-items:center;gap:6px;background:rgba(250,204,21,0.16);border:1px solid #facc15;border-radius:8px;padding:3px 8px;font-size:11px;color:#fef08a;">
+           <img src="${this.atlas.getItemIcon(heldCs.itemId)}" style="width:20px;height:20px;" />
+           <span>×${heldCs.count} — touchez une case</span>
+         </div>`
+      : '';
 
     card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <h2 style="margin:0;font-size:18px;">${title}</h2>
-          <div id="inv-tabs-wrap" style="display:flex;gap:6px;"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <strong style="font-size:15px;">${title}</strong>
+          <div id="inv-tabs-wrap" style="display:flex;gap:4px;"></div>
+          ${touchSelectionBanner}
         </div>
-        <button type="button" class="voxel-btn" id="btn-close-inv">✕ Fermer (E)</button>
+        <button type="button" class="voxel-btn" id="btn-close-inv" style="padding:5px 10px;">✕</button>
       </div>
-      <div id="inv-upper-section" style="margin-bottom:14px;"></div>
-      <div style="border-top:1px solid #334155;padding-top:12px;">
-        <div style="font-size:12px;color:#94a3b8;margin-bottom:6px;">Sac à dos (27) & Barre d'action (9)</div>
-        <div id="inv-backpack-grid" style="display:grid;grid-template-columns:repeat(9, 48px);gap:5px;justify-content:center;margin-bottom:10px;"></div>
-        <div id="inv-hotbar-grid" style="display:grid;grid-template-columns:repeat(9, 48px);gap:5px;justify-content:center;"></div>
+
+      <div id="inv-upper-section" style="margin-bottom:10px;"></div>
+
+      <div style="border-top:1px solid #334155;padding-top:8px;display:flex;flex-direction:column;gap:6px;">
+        <div id="inv-backpack-grid" class="inv-grid-9"></div>
+        <div id="inv-hotbar-grid" class="inv-grid-9" style="padding-top:2px;border-top:1px dashed rgba(148,163,184,0.2);"></div>
       </div>
     `;
 
     card.querySelector('#btn-close-inv')!.addEventListener('click', () => this.close(true));
 
-    // Creative / Craft switch tabs when in standard inventory
-    if (this.contextMode === 'inventory' && gameMode === 'creative') {
+    // Clean segmented sub-tabs so 1-Click Recipes & Grid don't crowd side-by-side on narrow phones!
+    if (this.contextMode === 'inventory' || this.contextMode === 'crafting_table') {
       const tabs = card.querySelector('#inv-tabs-wrap') as HTMLDivElement;
-      const catBtn = document.createElement('button');
-      catBtn.type = 'button';
-      catBtn.className = `voxel-btn ${this.activeTab === 'creative' ? 'primary' : ''}`;
-      catBtn.style.padding = '5px 10px';
-      catBtn.textContent = '✨ Catalogue Créatif';
-      catBtn.addEventListener('click', () => {
-        this.activeTab = 'creative';
-        rerender();
-      });
-
-      const crfBtn = document.createElement('button');
-      crfBtn.type = 'button';
-      crfBtn.className = `voxel-btn ${this.activeTab === 'craft' ? 'primary' : ''}`;
-      crfBtn.style.padding = '5px 10px';
-      crfBtn.textContent = '🛠️ Craft 2x2';
-      crfBtn.addEventListener('click', () => {
-        this.activeTab = 'craft';
-        rerender();
-      });
-      tabs.append(catBtn, crfBtn);
+      const addTab = (id: 'recipes' | 'grid' | 'creative', label: string) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `voxel-btn ${this.activeTab === id ? 'primary' : ''}`;
+        b.style.padding = '4px 8px';
+        b.style.fontSize = '11px';
+        b.textContent = label;
+        b.addEventListener('click', () => {
+          this.activeTab = id;
+          rerender();
+        });
+        tabs.appendChild(b);
+      };
+      if (gameMode === 'creative') addTab('creative', '✨ Blocs');
+      addTab('recipes', '📖 Recettes');
+      addTab('grid', this.contextMode === 'crafting_table' ? '🛠️ 3x3' : '🛠️ 2x2');
     }
 
     const upper = card.querySelector('#inv-upper-section') as HTMLDivElement;
 
-    // ==================== UPPER CONTEXT SECTION ====================
-    if (this.contextMode === 'inventory' && this.activeTab === 'creative' && gameMode === 'creative') {
+    if ((this.contextMode === 'inventory' || this.contextMode === 'crafting_table') && this.activeTab === 'creative' && gameMode === 'creative') {
       this.renderCreativeCatalogue(upper, rerender);
     } else if (this.contextMode === 'inventory' || this.contextMode === 'crafting_table') {
-      this.renderCraftingAndRecipeBook(upper, this.contextMode === 'crafting_table' ? 3 : 2, rerender);
+      const gs = this.contextMode === 'crafting_table' ? 3 : 2;
+      if (this.activeTab === 'grid') {
+        this.renderManualGrid(upper, gs, rerender);
+      } else {
+        this.renderRecipeBook(upper, gs === 3, rerender);
+      }
     } else if (this.contextMode === 'furnace' && this.activeFurnace) {
       this.renderFurnaceSection(upper, this.activeFurnace, rerender);
     } else if (this.contextMode === 'chest' && this.activeChest) {
@@ -322,7 +331,6 @@ export class InventoryModal {
       this.renderMerchantSection(upper, rerender);
     }
 
-    // ==================== PLAYER BACKPACK & HOTBAR ====================
     const backpackEl = card.querySelector('#inv-backpack-grid') as HTMLDivElement;
     for (let i = HOTBAR_SIZE; i < INVENTORY_TOTAL_SLOTS; i++) {
       backpackEl.appendChild(
@@ -358,11 +366,9 @@ export class InventoryModal {
 
   private renderCreativeCatalogue(upper: HTMLElement, rerender: () => void): void {
     upper.innerHTML = `
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <input type="text" id="inp-creative-search" class="voxel-input" placeholder="🔍 Rechercher un bloc, minerai, outil, TNT..."
-          value="${this.creativeSearchQuery}" style="flex:1;" />
-      </div>
-      <div id="creative-items-grid" style="display:grid;grid-template-columns:repeat(auto-fill, 48px);gap:5px;max-height:195px;overflow-y:auto;justify-content:center;padding:4px;"></div>
+      <input type="text" id="inp-creative-search" class="voxel-input" placeholder="🔍 Rechercher..."
+        value="${this.creativeSearchQuery}" style="width:100%;padding:6px 10px;font-size:13px;margin-bottom:6px;" />
+      <div id="creative-items-grid" class="inv-grid-9" style="max-height:132px;overflow-y:auto;padding:2px;"></div>
     `;
 
     const searchInp = upper.querySelector('#inp-creative-search') as HTMLInputElement;
@@ -392,24 +398,49 @@ export class InventoryModal {
     }
   }
 
-  private renderCraftingAndRecipeBook(upper: HTMLElement, gridSize: 2 | 3, rerender: () => void): void {
-    const has3x3 = gridSize === 3;
+  private renderRecipeBook(upper: HTMLElement, has3x3: boolean, rerender: () => void): void {
     upper.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;align-items:center;">
-        <!-- Manual Crafting Grid -->
-        <div style="background:rgba(11,16,26,0.75);border:1px solid #334155;border-radius:8px;padding:12px;display:flex;align-items:center;justify-content:center;gap:16px;">
-          <div id="craft-input-grid" style="display:grid;grid-template-columns:repeat(${gridSize}, 48px);gap:5px;"></div>
-          <div style="font-size:22px;color:#94a3b8;">➔</div>
-          <div id="craft-output-holder"></div>
-        </div>
+      <div id="recipe-book-list" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(128px, 1fr));gap:5px;max-height:135px;overflow-y:auto;background:rgba(9,13,22,0.65);padding:6px;border-radius:8px;border:1px solid #334155;"></div>
+    `;
+    const bookList = upper.querySelector('#recipe-book-list') as HTMLDivElement;
+    const availableRecipes = CRAFTING_RECIPES.filter((r) => !r.requires3x3 || has3x3);
+    availableRecipes.sort((a, b) => {
+      const ca = this.inventory.canCraftFromInventory(a, has3x3) ? 0 : 1;
+      const cb = this.inventory.canCraftFromInventory(b, has3x3) ? 0 : 1;
+      return ca - cb;
+    });
 
-        <!-- 1-Click Interactive Recipe Book -->
-        <div style="background:rgba(11,16,26,0.75);border:1px solid #334155;border-radius:8px;padding:10px;">
-          <div style="font-size:13px;font-weight:700;color:#4ade80;margin-bottom:6px;">
-            📖 Livre de Recettes en 1 Clic (${has3x3 ? '2x2 & 3x3' : 'Grille 2x2'})
-          </div>
-          <div id="recipe-book-list" style="display:grid;grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));gap:6px;max-height:165px;overflow-y:auto;"></div>
-        </div>
+    for (const r of availableRecipes) {
+      const craftable = this.inventory.canCraftFromInventory(r, has3x3);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `voxel-btn ${craftable ? 'primary' : ''}`;
+      btn.style.cssText = `
+        padding: 5px 7px;
+        justify-content: flex-start;
+        font-size: 11px;
+        opacity: ${craftable ? '1' : '0.45'};
+      `;
+      btn.innerHTML = `
+        <img src="${this.atlas.getItemIcon(r.resultId)}" style="width:22px;height:22px;image-rendering:pixelated;flex-shrink:0;" />
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}</span>
+      `;
+      btn.addEventListener('click', () => {
+        if (this.inventory.craftRecipeOneClick(r, has3x3)) {
+          this.onCraftSuccessSound?.();
+          rerender();
+        }
+      });
+      bookList.appendChild(btn);
+    }
+  }
+
+  private renderManualGrid(upper: HTMLElement, gridSize: 2 | 3, rerender: () => void): void {
+    upper.innerHTML = `
+      <div style="background:rgba(9,13,22,0.7);border:1px solid #334155;border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:center;gap:14px;">
+        <div id="craft-input-grid" style="display:grid;grid-template-columns:repeat(${gridSize}, var(--slot-size));gap:4px;"></div>
+        <div style="font-size:18px;color:#94a3b8;">➔</div>
+        <div id="craft-output-holder"></div>
       </div>
     `;
 
@@ -443,40 +474,6 @@ export class InventoryModal {
       Boolean(matched)
     );
     upper.querySelector('#craft-output-holder')!.appendChild(outEl);
-
-    // Populate 1-Click Recipe Book
-    const bookList = upper.querySelector('#recipe-book-list') as HTMLDivElement;
-    const availableRecipes = CRAFTING_RECIPES.filter((r) => !r.requires3x3 || has3x3);
-    // Show craftable recipes first!
-    availableRecipes.sort((a, b) => {
-      const ca = this.inventory.canCraftFromInventory(a, has3x3) ? 0 : 1;
-      const cb = this.inventory.canCraftFromInventory(b, has3x3) ? 0 : 1;
-      return ca - cb;
-    });
-
-    for (const r of availableRecipes) {
-      const craftable = this.inventory.canCraftFromInventory(r, has3x3);
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = `voxel-btn ${craftable ? 'primary' : ''}`;
-      btn.style.cssText = `
-        padding: 5px 8px;
-        justify-content: flex-start;
-        font-size: 11px;
-        opacity: ${craftable ? '1' : '0.48'};
-      `;
-      btn.innerHTML = `
-        <img src="${this.atlas.getItemIcon(r.resultId)}" style="width:24px;height:24px;image-rendering:pixelated;" />
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.name}</span>
-      `;
-      btn.addEventListener('click', () => {
-        if (this.inventory.craftRecipeOneClick(r, has3x3)) {
-          this.onCraftSuccessSound?.();
-          rerender();
-        }
-      });
-      bookList.appendChild(btn);
-    }
   }
 
   private renderFurnaceSection(upper: HTMLElement, f: FurnaceState, rerender: () => void): void {
@@ -484,62 +481,39 @@ export class InventoryModal {
     const cookPct = f.cookTotal > 0 ? Math.min(100, (f.cookProgress / f.cookTotal) * 100) : 0;
 
     upper.innerHTML = `
-      <div style="background:rgba(11,16,26,0.8);border:1px solid #334155;border-radius:8px;padding:16px;display:flex;align-items:center;justify-content:center;gap:24px;">
-        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-          <span style="font-size:11px;color:#94a3b8;">Minerai / Cru</span>
+      <div style="background:rgba(9,13,22,0.75);border:1px solid #334155;border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:center;gap:16px;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
           <div id="furn-input"></div>
-          <div style="width:44px;height:8px;background:#1e293b;border-radius:4px;overflow:hidden;" title="Flamme Combustible">
+          <div style="width:36px;height:6px;background:#1e293b;border-radius:3px;overflow:hidden;">
             <div style="height:100%;width:${burnPct}%;background:#f97316;"></div>
           </div>
           <div id="furn-fuel"></div>
-          <span style="font-size:11px;color:#94a3b8;">Combustible (Charbon/Bois)</span>
         </div>
-
-        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-          <div style="font-size:20px;">${f.burnRemaining > 0 ? '🔥' : '❄️'}</div>
-          <div style="width:84px;height:12px;background:#1e293b;border-radius:6px;overflow:hidden;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div>${f.burnRemaining > 0 ? '🔥' : '❄️'}</div>
+          <div style="width:64px;height:10px;background:#1e293b;border-radius:5px;overflow:hidden;">
             <div style="height:100%;width:${cookPct}%;background:#4ade80;"></div>
           </div>
-          <span style="font-size:11px;color:#94a3b8;">${Math.round(cookPct)} %</span>
         </div>
-
-        <div style="display:flex;flex-direction:column;align-items:center;gap:6px;">
-          <span style="font-size:11px;color:#4ade80;">Résultat Fondu</span>
-          <div id="furn-output"></div>
-        </div>
+        <div id="furn-output"></div>
       </div>
     `;
 
     upper.querySelector('#furn-input')!.appendChild(
       this.buildSlotElement(f.input, (rc) => {
-        this.interactWithSlot(
-          () => f.input,
-          (v) => (f.input = v),
-          rc,
-          rerender
-        );
+        this.interactWithSlot(() => f.input, (v) => (f.input = v), rc, rerender);
       })
     );
     upper.querySelector('#furn-fuel')!.appendChild(
       this.buildSlotElement(f.fuel, (rc) => {
-        this.interactWithSlot(
-          () => f.fuel,
-          (v) => (f.fuel = v),
-          rc,
-          rerender
-        );
+        this.interactWithSlot(() => f.fuel, (v) => (f.fuel = v), rc, rerender);
       })
     );
     upper.querySelector('#furn-output')!.appendChild(
       this.buildSlotElement(
         f.output,
         (rc) => {
-          this.interactWithSlot(
-            () => f.output,
-            (v) => (f.output = v),
-            rc,
-            rerender
-          );
+          this.interactWithSlot(() => f.output, (v) => (f.output = v), rc, rerender);
         },
         Boolean(f.output)
       )
@@ -548,7 +522,7 @@ export class InventoryModal {
 
   private renderChestSection(upper: HTMLElement, chest: ChestState, rerender: () => void): void {
     upper.innerHTML = `
-      <div id="chest-slots-grid" style="display:grid;grid-template-columns:repeat(9, 48px);gap:5px;justify-content:center;background:rgba(11,16,26,0.75);padding:10px;border-radius:8px;border:1px solid #334155;"></div>
+      <div id="chest-slots-grid" class="inv-grid-9" style="background:rgba(9,13,22,0.72);padding:6px;border-radius:8px;border:1px solid #334155;"></div>
     `;
     const grid = upper.querySelector('#chest-slots-grid') as HTMLDivElement;
     for (let i = 0; i < 27; i++) {
@@ -567,32 +541,27 @@ export class InventoryModal {
 
   private renderMerchantSection(upper: HTMLElement, rerender: () => void): void {
     upper.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));gap:8px;max-height:190px;overflow-y:auto;"></div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));gap:6px;max-height:135px;overflow-y:auto;"></div>
     `;
     const wrap = upper.firstElementChild as HTMLDivElement;
     for (const offer of MERCHANT_TRADES) {
       const canAfford = this.inventory.countItem(offer.costItemId) >= offer.costCount;
-      const costDef = getBlockOrItem(offer.costItemId);
-      const rewDef = getBlockOrItem(offer.rewardItemId);
-
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `voxel-btn ${canAfford ? 'primary' : ''}`;
-      btn.style.cssText = `justify-content:space-between;padding:8px 10px;opacity:${canAfford ? '1' : '0.5'};`;
+      btn.style.cssText = `justify-content:space-between;padding:6px 8px;opacity:${canAfford ? '1' : '0.45'};`;
       btn.innerHTML = `
-        <span style="display:flex;align-items:center;gap:4px;font-size:12px;">
-          <img src="${this.atlas.getItemIcon(offer.costItemId)}" style="width:24px;height:24px;" />
-          x${offer.costCount}
+        <span style="display:flex;align-items:center;gap:3px;font-size:11px;">
+          <img src="${this.atlas.getItemIcon(offer.costItemId)}" style="width:20px;height:20px;" />×${offer.costCount}
         </span>
         <span>➔</span>
-        <span style="display:flex;align-items:center;gap:4px;font-size:12px;">
-          <img src="${this.atlas.getItemIcon(offer.rewardItemId)}" style="width:24px;height:24px;" />
-          x${offer.rewardCount} ${rewDef.name.split(' ')[0]}
+        <span style="display:flex;align-items:center;gap:3px;font-size:11px;">
+          <img src="${this.atlas.getItemIcon(offer.rewardItemId)}" style="width:20px;height:20px;" />×${offer.rewardCount}
         </span>
       `;
-      btn.title = `Échanger ${offer.costCount} ${costDef.name} contre ${offer.rewardCount} ${rewDef.name}`;
       btn.addEventListener('click', () => {
         if (this.inventory.removeItemCount(offer.costItemId, offer.costCount)) {
+          const rewDef = getBlockOrItem(offer.rewardItemId);
           this.inventory.addItem(
             offer.rewardItemId,
             offer.rewardCount,

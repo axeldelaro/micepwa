@@ -2,7 +2,7 @@ import { getBlockOrItem } from '../blocks/BlockRegistry';
 import { AGENT_ROLE_INFO, type AgentRole, type VoxelAgentAI } from '../entities/VoxelAgentAI';
 import { DESIGN_PACK_INFO, type DesignPackId, type ProceduralAtlas } from '../graphics/ProceduralAtlas';
 import { GRAPHICS_MODE_LABELS, type GraphicsMode } from '../graphics/RenderPipeline';
-import { WEATHER_LABELS, type WeatherKind } from '../graphics/WeatherSystem';
+import type { WeatherKind } from '../graphics/WeatherSystem';
 import { HOTBAR_SIZE, type InventoryManager } from '../player/InventoryManager';
 import type { PlayerController } from '../player/PlayerController';
 
@@ -56,6 +56,7 @@ export class HUD {
   public onCycleDesignPackQuick?: () => void;
   public onCycleWeatherQuick?: () => void;
   public onOpenP2PLobby?: () => void;
+  public onOpenChat?: () => void;
   public onOpenInventory?: () => void;
   public onOpenSettings?: () => void;
   public onAssignCompanionRole?: (agent: VoxelAgentAI, role: AgentRole) => void;
@@ -69,193 +70,160 @@ export class HUD {
     this.root.id = 'hud-overlay';
     this.root.style.cssText = 'position: fixed; inset: 0; pointer-events: none; display: none; z-index: 15;';
 
-    // 1. Central Crosshair
+    // 1. Crisp Central Crosshair
     const crosshair = document.createElement('div');
     crosshair.style.cssText = `
       position: absolute;
       left: 50%;
       top: 50%;
-      width: 18px;
-      height: 18px;
+      width: 16px;
+      height: 16px;
       transform: translate(-50%, -50%);
     `;
     crosshair.innerHTML = `
-      <div style="position:absolute;left:8px;top:1px;width:2px;height:16px;background:rgba(255,255,255,0.88);box-shadow:0 0 2px #000;"></div>
-      <div style="position:absolute;left:1px;top:8px;width:16px;height:2px;background:rgba(255,255,255,0.88);box-shadow:0 0 2px #000;"></div>
+      <div style="position:absolute;left:7px;top:1px;width:2px;height:14px;background:rgba(255,255,255,0.88);box-shadow:0 0 2px #000;"></div>
+      <div style="position:absolute;left:1px;top:7px;width:14px;height:2px;background:rgba(255,255,255,0.88);box-shadow:0 0 2px #000;"></div>
     `;
 
-    // 2. Top-Left Quick Action Bar
+    // 2. Unified Single-Row Top Bar (Icon-only glass pills on phone, Icon + short text on PC!)
     const topBar = document.createElement('div');
     topBar.className = 'ui-interactive';
     topBar.style.cssText = `
       position: absolute;
-      top: 10px;
-      left: 12px;
+      top: calc(8px + var(--safe-top));
+      left: calc(10px + var(--safe-left));
+      right: calc(10px + var(--safe-right));
       display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
+      justify-content: space-between;
       align-items: center;
+      pointer-events: none;
     `;
 
-    this.gfxBtn = document.createElement('button');
-    this.gfxBtn.id = 'btn-quick-graphics';
-    this.gfxBtn.type = 'button';
-    this.gfxBtn.className = 'voxel-btn primary';
-    this.gfxBtn.style.padding = '5px 10px';
-    this.gfxBtn.style.fontSize = '12px';
-    this.gfxBtn.textContent = GRAPHICS_MODE_LABELS.photoreal;
-    this.gfxBtn.addEventListener('click', () => this.onToggleGraphicsQuick?.());
+    const leftPills = document.createElement('div');
+    leftPills.style.cssText = 'display:flex;gap:5px;pointer-events:auto;';
 
-    this.packBtn = document.createElement('button');
-    this.packBtn.id = 'btn-quick-pack';
-    this.packBtn.type = 'button';
-    this.packBtn.className = 'voxel-btn amber';
-    this.packBtn.style.padding = '5px 10px';
-    this.packBtn.style.fontSize = '12px';
-    this.packBtn.textContent = DESIGN_PACK_INFO.realiste_hd.badge;
-    this.packBtn.addEventListener('click', () => this.onCycleDesignPackQuick?.());
+    const rightPills = document.createElement('div');
+    rightPills.style.cssText = 'display:flex;gap:5px;align-items:center;pointer-events:auto;';
 
-    this.weatherBtn = document.createElement('button');
-    this.weatherBtn.id = 'btn-quick-weather';
-    this.weatherBtn.type = 'button';
-    this.weatherBtn.className = 'voxel-btn';
-    this.weatherBtn.style.padding = '5px 10px';
-    this.weatherBtn.style.fontSize = '12px';
-    this.weatherBtn.textContent = '☀️ Météo';
-    this.weatherBtn.addEventListener('click', () => this.onCycleWeatherQuick?.());
+    this.gfxBtn = this.makePill('btn-quick-graphics', '📸', 'Vue Réelle', () => this.onToggleGraphicsQuick?.());
+    this.packBtn = this.makePill('btn-quick-pack', '🖼️', 'HD 64x', () => this.onCycleDesignPackQuick?.());
+    this.weatherBtn = this.makePill('btn-quick-weather', '☀️', 'Clair', () => this.onCycleWeatherQuick?.());
+    this.p2pBtn = this.makePill('btn-quick-p2p', '🌐', 'P2P', () => this.onOpenP2PLobby?.());
 
-    this.p2pBtn = document.createElement('button');
-    this.p2pBtn.id = 'btn-quick-p2p';
-    this.p2pBtn.type = 'button';
-    this.p2pBtn.className = 'voxel-btn blue';
-    this.p2pBtn.style.padding = '5px 10px';
-    this.p2pBtn.style.fontSize = '12px';
-    this.p2pBtn.textContent = '🌐 Salon P2P';
-    this.p2pBtn.addEventListener('click', () => this.onOpenP2PLobby?.());
+    const chatBtn = this.makePill('btn-quick-chat', '💬', 'Chat', () => this.onOpenChat?.());
+    const f3Btn = this.makePill('btn-quick-f3', '📊', 'F3', () => this.toggleDebug());
+    const settingsBtn = this.makePill('btn-quick-settings', '⏸', 'Menu', () => this.onOpenSettings?.());
 
-    const f3Btn = document.createElement('button');
-    f3Btn.id = 'btn-quick-f3';
-    f3Btn.type = 'button';
-    f3Btn.className = 'voxel-btn';
-    f3Btn.style.padding = '5px 9px';
-    f3Btn.style.fontSize = '12px';
-    f3Btn.textContent = 'F3';
-    f3Btn.addEventListener('click', () => this.toggleDebug());
-
-    const settingsBtn = document.createElement('button');
-    settingsBtn.id = 'btn-quick-settings';
-    settingsBtn.type = 'button';
-    settingsBtn.className = 'voxel-btn';
-    settingsBtn.style.padding = '5px 10px';
-    settingsBtn.style.fontSize = '12px';
-    settingsBtn.textContent = '⚙️ Menu';
-    settingsBtn.addEventListener('click', () => this.onOpenSettings?.());
-
-    topBar.append(this.gfxBtn, this.packBtn, this.weatherBtn, this.p2pBtn, f3Btn, settingsBtn);
-
-    // Top-Center Mode / Bastion Wave & Score Banner
     this.modeScoreBanner = document.createElement('div');
     this.modeScoreBanner.style.cssText = `
-      position: absolute;
-      top: 12px;
-      right: 16px;
       background: rgba(11, 16, 26, 0.78);
-      border: 1px solid #475569;
-      border-radius: 6px;
-      padding: 5px 10px;
-      font-size: 12px;
+      border: 1px solid rgba(250, 204, 21, 0.5);
+      border-radius: 10px;
+      padding: 4px 8px;
+      font-size: 11px;
       font-weight: 700;
       color: #fde047;
+      display: none;
     `;
 
-    // 3. F3 Debug Telemetry Overlay
+    leftPills.append(this.gfxBtn, this.packBtn, this.weatherBtn, this.p2pBtn);
+    rightPills.append(this.modeScoreBanner, chatBtn, f3Btn, settingsBtn);
+    topBar.append(leftPills, rightPills);
+
+    // 3. Compact F3 Debug Overlay
     this.debugPanel = document.createElement('div');
     this.debugPanel.id = 'f3-debug-overlay';
     this.debugPanel.style.cssText = `
       position: absolute;
-      top: 48px;
-      left: 12px;
+      top: calc(48px + var(--safe-top));
+      left: calc(10px + var(--safe-left));
+      max-width: calc(100vw - 20px);
       background: rgba(9, 13, 22, 0.84);
       border: 1px solid #334155;
-      border-radius: 6px;
-      padding: 8px 12px;
+      border-radius: 8px;
+      padding: 6px 10px;
       font-family: monospace;
-      font-size: 12px;
-      line-height: 1.45;
+      font-size: 11px;
+      line-height: 1.4;
       color: #e2e8f0;
       display: none;
     `;
 
-    // 4. Bottom Center HUD
+    // 4. Bottom Center HUD (Adaptive Vitals + Responsive Hotbar)
     const bottomCenter = document.createElement('div');
     bottomCenter.style.cssText = `
       position: absolute;
       left: 50%;
-      bottom: 10px;
+      bottom: calc(6px + var(--safe-bottom));
       transform: translateX(-50%);
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
+      max-width: calc(100vw - 12px);
     `;
 
     this.heldLabelEl = document.createElement('div');
     this.heldLabelEl.style.cssText = `
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 700;
       color: #fef08a;
       text-shadow: 1px 1px 2px #000;
-      min-height: 18px;
+      min-height: 15px;
+      max-width: 72vw;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     `;
-
-    this.armorEl = document.createElement('div');
-    this.armorEl.style.cssText = 'font-size:13px;text-shadow:1px 1px 2px #000;align-self:flex-start;padding-left:4px;';
 
     this.vitalsRow = document.createElement('div');
     this.vitalsRow.style.cssText = `
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 8px;
       width: 100%;
-      max-width: 484px;
       padding: 0 4px;
-      font-size: 14px;
+      font-size: 12px;
+      font-weight: 700;
       text-shadow: 1px 1px 2px #000;
     `;
     this.heartsEl = document.createElement('div');
+    this.armorEl = document.createElement('div');
     this.oxygenEl = document.createElement('div');
     this.hungerEl = document.createElement('div');
-    this.vitalsRow.append(this.heartsEl, this.oxygenEl, this.hungerEl);
+    this.vitalsRow.append(this.heartsEl, this.armorEl, this.oxygenEl, this.hungerEl);
 
     const hotbarContainer = document.createElement('div');
     hotbarContainer.className = 'ui-interactive';
     hotbarContainer.style.cssText = `
       display: flex;
       align-items: center;
-      gap: 6px;
-      background: rgba(11, 16, 26, 0.85);
-      border: 2px solid #475569;
-      border-radius: 8px;
-      padding: 5px;
+      gap: 3px;
+      background: rgba(11, 16, 26, 0.84);
+      backdrop-filter: blur(4px);
+      border: 1.5px solid #475569;
+      border-radius: 9px;
+      padding: 4px;
     `;
 
     this.hotbarRow = document.createElement('div');
-    this.hotbarRow.style.cssText = 'display: flex; gap: 4px;';
+    this.hotbarRow.style.cssText = 'display: flex; gap: 3px;';
 
     const bagBtn = document.createElement('button');
     bagBtn.id = 'btn-hud-inventory';
     bagBtn.type = 'button';
-    bagBtn.className = 'voxel-btn';
-    bagBtn.style.height = '48px';
-    bagBtn.style.padding = '0 10px';
+    bagBtn.className = 'slot-box hotbar-slot';
+    bagBtn.style.background = 'rgba(30, 41, 59, 0.92)';
+    bagBtn.style.fontSize = '16px';
     bagBtn.title = 'Inventaire & Craft (E)';
     bagBtn.textContent = '🎒';
     bagBtn.addEventListener('click', () => this.onOpenInventory?.());
 
     hotbarContainer.append(this.hotbarRow, bagBtn);
-    bottomCenter.append(this.heldLabelEl, this.armorEl, this.vitalsRow, hotbarContainer);
+    bottomCenter.append(this.heldLabelEl, this.vitalsRow, hotbarContainer);
 
-    this.root.append(crosshair, topBar, this.modeScoreBanner, this.debugPanel, bottomCenter);
+    this.root.append(crosshair, topBar, this.debugPanel, bottomCenter);
     parent.appendChild(this.root);
 
     this.inventory.onChange(() => this.renderHotbar());
@@ -265,7 +233,6 @@ export class HUD {
     });
     this.renderHotbar();
 
-    // F1 key: toggle clean cinema screenshot mode (hides HUD)
     window.addEventListener('keydown', (e) => {
       if (e.code === 'F1') {
         e.preventDefault();
@@ -273,6 +240,20 @@ export class HUD {
         this.root.style.opacity = this.cinemaHideHud ? '0' : '1';
       }
     });
+  }
+
+  private makePill(id: string, icon: string, text: string, onClick: () => void): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.id = id;
+    b.type = 'button';
+    b.className = 'hud-pill';
+    b.innerHTML = `<span>${icon}</span><span class="pill-text">${text}</span>`;
+    b.addEventListener('click', onClick);
+    return b;
+  }
+
+  private setPillContent(btn: HTMLButtonElement, icon: string, text: string): void {
+    btn.innerHTML = `<span>${icon}</span><span class="pill-text">${text}</span>`;
   }
 
   public setVisible(visible: boolean): void {
@@ -285,23 +266,38 @@ export class HUD {
   }
 
   public updateGraphicsBadge(mode: GraphicsMode): void {
-    this.gfxBtn.textContent = GRAPHICS_MODE_LABELS[mode];
-    this.gfxBtn.className = mode === 'photoreal' ? 'voxel-btn primary' : mode === 'ultra' ? 'voxel-btn blue' : 'voxel-btn amber';
+    if (mode === 'photoreal') this.setPillContent(this.gfxBtn, '📸', 'Vue Réelle');
+    else if (mode === 'ultra') this.setPillContent(this.gfxBtn, '✨', 'Shaders PBR');
+    else this.setPillContent(this.gfxBtn, '🎨', 'Classique');
   }
 
   public updatePackBadge(pack: DesignPackId): void {
-    this.packBtn.textContent = DESIGN_PACK_INFO[pack].badge;
+    const map: Record<DesignPackId, [string, string]> = {
+      realiste_hd: ['🖼️', 'HD 64x'],
+      classic: ['🎨', '16x'],
+      medieval_rpg: ['🏰', 'RPG'],
+      neon_cyber: ['⚡', 'Néon'],
+    };
+    const [ic, tx] = map[pack];
+    this.setPillContent(this.packBtn, ic, tx);
   }
 
   public updateWeatherBadge(w: WeatherKind): void {
-    this.weatherBtn.textContent = WEATHER_LABELS[w];
+    const map: Record<WeatherKind, [string, string]> = {
+      clear: ['☀️', 'Clair'],
+      rain: ['🌧️', 'Pluie'],
+      snow: ['❄️', 'Neige'],
+      storm: ['⛈️', 'Orage'],
+    };
+    const [ic, tx] = map[w];
+    this.setPillContent(this.weatherBtn, ic, tx);
   }
 
   public updateP2PBadge(roomCode: string, peersCount: number): void {
     if (roomCode) {
-      this.p2pBtn.textContent = `🌐 ${roomCode} (${peersCount + 1} j.)`;
+      this.p2pBtn.innerHTML = `<span>🌐</span><span style="font-size:11px;color:#4ade80;">${roomCode} (${peersCount + 1})</span>`;
     } else {
-      this.p2pBtn.textContent = '🌐 Salon P2P';
+      this.setPillContent(this.p2pBtn, '🌐', 'P2P');
     }
   }
 
@@ -310,7 +306,7 @@ export class HUD {
     for (let i = 0; i < HOTBAR_SIZE; i++) {
       const stack = this.inventory.slots[i];
       const box = document.createElement('div');
-      box.className = `slot-box${i === this.inventory.selectedHotbar ? ' selected' : ''}`;
+      box.className = `slot-box hotbar-slot${i === this.inventory.selectedHotbar ? ' selected' : ''}`;
       box.addEventListener('click', () => this.inventory.selectHotbar(i));
 
       if (stack && stack.count > 0) {
@@ -349,53 +345,55 @@ export class HUD {
   public updateVitalsAndDebug(player: PlayerController, telemetry: DebugTelemetry): void {
     if (player.gameMode === 'bastion') {
       this.modeScoreBanner.style.display = 'block';
-      this.modeScoreBanner.textContent = `🛡️ BASTION — Vague ${telemetry.bastionWave} • Score ${telemetry.killScore}`;
+      this.modeScoreBanner.textContent = `🛡️ V${telemetry.bastionWave} • ${telemetry.killScore} pts`;
     } else if (player.gameMode === 'spectator') {
       this.modeScoreBanner.style.display = 'block';
-      this.modeScoreBanner.textContent = '📷 MODE CINÉMA (Molette = Zoom • F1 = Masquer HUD)';
+      this.modeScoreBanner.textContent = '📷 Cinéma';
     } else if (player.gameMode === 'hardcore') {
       this.modeScoreBanner.style.display = 'block';
-      this.modeScoreBanner.textContent = `💀 HARDCORE • Score ${telemetry.killScore}`;
+      this.modeScoreBanner.textContent = `💀 ${telemetry.killScore} pts`;
     } else {
       this.modeScoreBanner.style.display = 'none';
     }
 
     if (player.isInvulnerableMode()) {
       this.vitalsRow.style.display = 'none';
-      this.armorEl.textContent = '';
     } else {
       this.vitalsRow.style.display = 'flex';
-      const shields = Math.ceil(player.armor / 2);
-      this.armorEl.textContent = shields > 0 ? '🛡️'.repeat(shields) : '';
+      const compactMobile = window.innerWidth < 520 || window.innerHeight < 460;
 
-      const fullHearts = Math.ceil(player.health / 2);
-      const goldHearts = Math.ceil(player.absorption / 2);
-      const heartGlyph = player.gameMode === 'hardcore' ? '❤️‍🔥' : '❤️';
-      this.heartsEl.textContent =
-        heartGlyph.repeat(fullHearts) +
-        '🖤'.repeat(Math.max(0, 10 - fullHearts)) +
-        (goldHearts > 0 ? ' ' + '💛'.repeat(goldHearts) : '');
-
-      if (player.oxygen < player.maxOxygen) {
-        const bubbles = Math.ceil(player.oxygen / 2);
-        this.oxygenEl.textContent = '🫧'.repeat(bubbles);
+      if (compactMobile) {
+        // Ultra-clean numeric badges on phone so vitals never wrap or crowd the screen!
+        const hp = Math.ceil(player.health);
+        const abs = Math.ceil(player.absorption);
+        this.heartsEl.textContent = `❤️ ${hp}${abs > 0 ? `+${abs}` : ''}`;
+        this.armorEl.textContent = player.armor > 0 ? `🛡️ ${player.armor}` : '';
+        this.oxygenEl.textContent = player.oxygen < player.maxOxygen ? `🫧 ${Math.ceil(player.oxygen)}` : '';
+        this.hungerEl.textContent = `🍗 ${Math.ceil(player.hunger)}`;
       } else {
-        this.oxygenEl.textContent = '';
+        const shields = Math.ceil(player.armor / 4);
+        this.armorEl.textContent = shields > 0 ? '🛡️'.repeat(shields) : '';
+        const fullHearts = Math.ceil(player.health / 2);
+        const goldHearts = Math.ceil(player.absorption / 2);
+        this.heartsEl.textContent =
+          '❤️'.repeat(fullHearts) +
+          '🖤'.repeat(Math.max(0, 10 - fullHearts)) +
+          (goldHearts > 0 ? ' ' + '💛'.repeat(goldHearts) : '');
+        this.oxygenEl.textContent =
+          player.oxygen < player.maxOxygen ? '🫧'.repeat(Math.ceil(player.oxygen / 4)) : '';
+        const fullFood = Math.ceil(player.hunger / 2);
+        this.hungerEl.textContent = '🍗'.repeat(fullFood) + '▫️'.repeat(Math.max(0, 10 - fullFood));
       }
-
-      const fullFood = Math.ceil(player.hunger / 2);
-      this.hungerEl.textContent = '🍗'.repeat(fullFood) + '▫️'.repeat(Math.max(0, 10 - fullFood));
     }
 
     if (this.debugVisible) {
       this.debugPanel.innerHTML = `
-        <div><strong>VOXELCRAFT ULTIMATE (GitHub Pages)</strong> — <strong>${telemetry.fps} FPS</strong></div>
-        <div>XYZ : ${telemetry.x.toFixed(2)} / ${telemetry.y.toFixed(2)} / ${telemetry.z.toFixed(2)} (Chunk ${telemetry.cx}, ${telemetry.cz})</div>
-        <div>Biome : ${telemetry.biome} | Lumière : Ciel ${telemetry.skyLight} / Bloc ${telemetry.blockLight}</div>
-        <div>Seed : ${telemetry.seed} | Mode : ${telemetry.gameMode.toUpperCase()} | Météo : ${telemetry.weather.toUpperCase()}</div>
+        <div><strong>VOXELCRAFT ULTIMATE</strong> — <strong>${telemetry.fps} FPS</strong></div>
+        <div>XYZ : ${telemetry.x.toFixed(1)} / ${telemetry.y.toFixed(1)} / ${telemetry.z.toFixed(1)} (Ch ${telemetry.cx},${telemetry.cz})</div>
+        <div>Biome : ${telemetry.biome} | Ciel ${telemetry.skyLight} / Bloc ${telemetry.blockLight}</div>
+        <div>Seed : ${telemetry.seed} | ${telemetry.gameMode.toUpperCase()} | ${telemetry.weather.toUpperCase()}</div>
         <div>Rendu : ${GRAPHICS_MODE_LABELS[telemetry.graphicsMode]} | Pack : ${DESIGN_PACK_INFO[telemetry.designPack].name}</div>
-        <div>Contrôle : ${telemetry.inputDevice}</div>
-        <div>Réseau P2P : ${telemetry.p2pStatus} | Pairs : ${telemetry.peerCount} | Ping : ${telemetry.pingMs} ms</div>
+        <div>P2P : ${telemetry.p2pStatus} (${telemetry.peerCount} pairs, ${telemetry.pingMs} ms)</div>
       `;
     }
   }
@@ -407,19 +405,23 @@ export class HUD {
 
     const card = document.createElement('div');
     card.className = 'modal-card';
-    card.style.width = '460px';
+    card.style.maxWidth = '380px';
 
     const roles: AgentRole[] = ['guard', 'miner', 'builder', 'trader'];
+    const shortTips: Record<AgentRole, string> = {
+      guard: 'Escorte & combat',
+      miner: 'Récolte minerais/bois',
+      builder: 'Construit un abri',
+      trader: 'Échanges précieux',
+    };
+
     card.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-        <h3 style="margin:0;font-size:18px;">🤖 Agent Compagnon : ${agent.name}</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <strong style="font-size:16px;">🤖 ${agent.name}</strong>
         <button type="button" class="voxel-btn" id="close-radial-btn">✕</button>
       </div>
-      <p style="margin:0 0 12px;color:#94a3b8;font-size:13px;">
-        Assignez un rôle autonome à cet agent IA :
-      </p>
-      <div id="radial-role-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
-      <div id="trader-extra" style="margin-top:12px;display:flex;justify-content:flex-end;"></div>
+      <div id="radial-role-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;"></div>
+      <div id="trader-extra" style="margin-top:10px;"></div>
     `;
 
     const grid = card.querySelector('#radial-role-grid') as HTMLDivElement;
@@ -428,10 +430,10 @@ export class HUD {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `voxel-btn ${agent.role === r ? 'primary' : ''}`;
-      btn.style.cssText = 'flex-direction:column;align-items:flex-start;padding:12px;text-align:left;';
+      btn.style.cssText = 'flex-direction:column;padding:10px 8px;gap:2px;';
       btn.innerHTML = `
-        <div style="font-size:15px;">${info.badge}</div>
-        <div style="font-size:11px;font-weight:400;opacity:0.88;">${info.description}</div>
+        <div style="font-size:14px;">${info.badge}</div>
+        <div style="font-size:10px;font-weight:500;opacity:0.85;">${shortTips[r]}</div>
       `;
       btn.addEventListener('click', () => {
         this.onAssignCompanionRole?.(agent, r);
@@ -445,7 +447,8 @@ export class HUD {
       const tradeBtn = document.createElement('button');
       tradeBtn.type = 'button';
       tradeBtn.className = 'voxel-btn amber';
-      tradeBtn.textContent = '💎 Ouvrir le Comptoir d\'Échanges';
+      tradeBtn.style.width = '100%';
+      tradeBtn.textContent = '💎 Ouvrir les Échanges';
       tradeBtn.addEventListener('click', () => {
         this.closeCompanionRadialMenu();
         this.onOpenMerchantTrades?.(agent);
