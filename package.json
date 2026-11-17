@@ -1,0 +1,23 @@
+{
+  "name": "voxelcraft-online",
+  "private": true,
+  "version": "1.0.0",
+  "description": "VoxelCraft Online — 100% Static GitHub Pages 3D Voxel Sandbox with Dual Graphics (Classic & PBR Shaders), Hybrid Controls, AI Companions & Serverless WebRTC P2P",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "peerjs": "^1.5.4",
+    "simplex-noise": "^4.0.3",
+    "three": "^0.170.0",
+    "trystero": "^0.20.1"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  }
+}
